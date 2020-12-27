@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Worker + uhtml-ssr</title>
+    <script type="module">
+    (({serviceWorker}) => {
+
+      const waitController = new Promise($ => {
+        if (serviceWorker.controller)
+          $(serviceWorker.controller);
+        else
+          serviceWorker.register('./sw.js', {scope: './'})
+            .then(() => serviceWorker.ready)
+            .then(() => serviceWorker.getRegistration())
+            .then(({active}) => $(active));
+      });
+
+      waitController.then(controller => {
+
+        const click = event => {
+          event.preventDefault();
+          const {href, pathname} = event.currentTarget;
+          if (href !== location.href) {
+            history.pushState(null, null, href);
+            controller.postMessage(pathname);
+          }
+        };
+
+        const showLocation = () => {
+          controller.postMessage(location.pathname);
+        };
+
+        serviceWorker.addEventListener('message', ({data: html}) => {
+          const {body} = document;
+          body.innerHTML = html;
+          for (const a of body.querySelectorAll('a'))
+            a.addEventListener('click', click);
+        });
+
+        addEventListener('popstate', showLocation);
+        showLocation();
+      });
+    })(navigator);
+
+    </script>
+  </head>
+</html>
